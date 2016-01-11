@@ -21,6 +21,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyListOf;
@@ -46,7 +47,9 @@ public class TestMultiLineExecSourceUnit {
 
   @Spy
   @InjectMocks
-  private MultiLineExecSource.ExecRunnable execRunnable = new MultiLineExecSource.ExecRunnable(command[0], "|#]", " § ", channelProcessor, counterGroup, false, 0L, false, 1000, Charset.defaultCharset());
+  private MultiLineExecSource.ExecRunnable execRunnable = new MultiLineExecSource.ExecRunnable
+      (command[0], "|#]", null, " § ",channelProcessor, counterGroup, false, 0L, 
+          false, 1000, Charset.defaultCharset());
 
   private List<List<String>> eventLines = new ArrayList<List<String>>();
   private List<String> lines = new ArrayList<String>();
@@ -59,7 +62,6 @@ public class TestMultiLineExecSourceUnit {
     final int[] counter = {0};
 
     when(bufferedReader.readLine()).thenAnswer(new Answer<String>() {
-                                                 @Override
                                                  public String answer(InvocationOnMock invocationOnMock) throws Throwable {
                                                    return lines.get(counter[0]++);
                                                  }

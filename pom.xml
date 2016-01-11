@@ -6,7 +6,7 @@
 
     <groupId>nl.info.hadoop</groupId>
     <artifactId>flume-plugins</artifactId>
-    <version>0.5</version>
+    <version>0.5.1</version>
     <packaging>jar</packaging>
     <name>Info Flume Plugins</name>
 

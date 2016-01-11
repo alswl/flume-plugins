@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static nl.info.flume.source.MultiLineExecSourceConfigurationConstants.CHARSET;
@@ -68,6 +69,7 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
 
   private String command;
   private String eventTerminator;
+  private Pattern eventTerminatorRegex;
   private String lineTerminator;
   private CounterGroup counterGroup;
   private ExecutorService executor;
@@ -81,13 +83,16 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
 
   @Override
   public void start() {
-    logger.info("Multi Line Exec source starting with command: {}, event terminator: {}", command, eventTerminator);
+    logger.info(String.format(
+        "Multi Line Exec source starting with command: %s, event terminator: %s, event"
+            + "terminator regex: %s", command, eventTerminator, eventTerminatorRegex));
 
     executor = Executors.newSingleThreadExecutor();
     counterGroup = new CounterGroup();
 
-    runner = new ExecRunnable(command, eventTerminator, lineTerminator, getChannelProcessor(), counterGroup,
-        restart, restartThrottle, logStderr, bufferCount, charset);
+    runner = new ExecRunnable(command, eventTerminator, eventTerminatorRegex, lineTerminator,
+        getChannelProcessor(), counterGroup, restart, restartThrottle, logStderr,
+        bufferCount, charset);
 
     // FIXME: Use a callback-like executor / future to signal us upon failure.
     runnerFuture = executor.submit(runner);
@@ -136,10 +141,16 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
   public void configure(Context context) {
     command = context.getString("command");
     eventTerminator = context.getString("event.terminator");
+    String eventTerminatorRegexString = context.getString("event.terminatorRegex");
+    if (eventTerminatorRegexString != null) {
+      this.eventTerminatorRegex = Pattern.compile(eventTerminatorRegexString);
+    }
     lineTerminator = context.getString("line.terminator", DEFAULT_LINE_TERMINATOR);
 
     Preconditions.checkState(command != null, "The parameter command must be specified");
     Preconditions.checkState(lineTerminator != null, "The parameter line.terminator must be specified");
+    Preconditions.checkState((eventTerminator != null || eventTerminatorRegex != null), 
+        "The parameter event.terminator or event.terminatorRegex must be specified");
 
     restartThrottle = context.getLong(CONFIG_RESTART_THROTTLE, DEFAULT_RESTART_THROTTLE);
     restart = context.getBoolean(CONFIG_RESTART, DEFAULT_RESTART);
@@ -150,9 +161,14 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
 
   protected static class ExecRunnable implements Runnable {
 
-    public ExecRunnable(String command, String eventTerminator, String lineTerminator, ChannelProcessor channelProcessor, CounterGroup counterGroup, boolean restart, long restartThrottle, boolean logStderr, int bufferCount, Charset charset) {
+    public ExecRunnable(String command, String eventTerminator,
+        Pattern eventTerminatorRegex,
+        String lineTerminator, ChannelProcessor channelProcessor, CounterGroup counterGroup,
+        boolean restart, long restartThrottle, boolean logStderr,
+        int bufferCount, Charset charset) {
       this.command = command;
       this.eventTerminator = eventTerminator;
+      this.eventTerminatorRegex = eventTerminatorRegex;
       this.lineTerminator = lineTerminator;
       this.channelProcessor = channelProcessor;
       this.counterGroup = counterGroup;
@@ -165,6 +181,7 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
 
     private String command;
     private String eventTerminator;
+    private Pattern eventTerminatorRegex;
     private String lineTerminator;
     private ChannelProcessor channelProcessor;
     private CounterGroup counterGroup;
@@ -201,7 +218,8 @@ public class MultiLineExecSource extends AbstractSource implements EventDrivenSo
 
             buffer.add(line);
 
-            if (line.endsWith(eventTerminator)) {
+            if ((eventTerminatorRegex != null && eventTerminatorRegex.matcher(line).find())
+                || (eventTerminatorRegex == null && line.endsWith(eventTerminator))) {
               counterGroup.incrementAndGet("multi.line.exec.events.read");
               String eventBody = StringUtils.join(buffer.toArray(), lineTerminator);
               buffer.clear();

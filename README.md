@@ -155,3 +155,19 @@ agent.sinks.hdfssink.hdfs.path=/user/cloudera/log
 agent.sinks.hdfssink.hdfs.fileType=DataStream
 agent.sinks.hdfssink.serializer=nl.info.flume.serialization.JavaLogAvroEventSerializer$Builder
 ```
+
+
+## Alswl's modify
+
+support `eventTerminatorRegex`
+
+one configuration example for MySQL slowlog:
+
+```
+slowLog2Graylog.sources.slowLogSource.type = nl.info.flume.source.MultiLineExecSource
+slowLog2Graylog.sources.slowLogSource.command = tail -f -q /var/log/mysql/xxx/mysql_slow.log
+slowLog2Graylog.sources.slowLogSource.event.terminatorRegex = (?<!^SET timestamp=[0-9]{10});$
+slowLog2Graylog.sources.slowLogSource.line.terminator = §
+slowLog2Graylog.sources.slowLogSource.batchSize = 1
+
+```
